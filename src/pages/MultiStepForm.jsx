@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { FiChevronDown } from "react-icons/fi";
 import { Link } from "react-router-dom";
-import { MdEmergency } from "react-icons/md";
+import { MdEmergency, MdOutlineMyLocation } from "react-icons/md";
 
 function MultiStepForm() {
   const [emergency, setEmergency] = useState("What is your emergency?");
   const [showOtherEmergencies, setshowOtherEmergencies] = useState(false);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [userLocation, setUserLocation] = useState("");
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
+    name: "",
     phone: "",
-    location: "",
+    userLocation: "",
+    extraLocationInfo: "",
     emergency: "",
     otherEmergency: "",
   });
@@ -36,11 +38,7 @@ function MultiStepForm() {
   useEffect(() => {
     // Perform validation before allowing to proceed
     if (step === 1) {
-      if (
-        formData.firstName.trim() === "" ||
-        formData.lastName.trim() === "" ||
-        formData.phone.trim() === ""
-      ) {
+      if (formData.name.trim() === "" || formData.phone.trim() === "") {
         // If any required field is empty, disable the "Next" button
         setDisableNext(true);
       } else {
@@ -50,8 +48,8 @@ function MultiStepForm() {
     } else if (step === 2) {
       if (showOtherEmergencies) {
         if (
-          formData.location.trim() === "" ||
-          formData.otherEmergency.trim() === ""
+          formData.otherEmergency.trim() === "" ||
+          formData.userLocation === ""
         ) {
           // If any required field is empty, disable the "Submit" button
           setDisableNext(true);
@@ -60,7 +58,7 @@ function MultiStepForm() {
           setDisableNext(false);
         }
       } else {
-        if (formData.location.trim() === "" || formData.emergency === "") {
+        if (formData.emergency === "" || formData.userLocation === "") {
           // If any required field is empty, disable the "Submit" button
           setDisableNext(true);
         } else {
@@ -107,6 +105,47 @@ function MultiStepForm() {
     }
   };
 
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setFetchingLocation(true);
+          console.log("Latitude is :", latitude);
+          console.log("Longitude is :", longitude);
+
+          try {
+            const response = await fetch(
+              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=AIzaSyDThNsjdA602Dg9t8BdjKONZ-tb6nLqKfw`
+            );
+            const data = await response.json();
+
+            if (data && data.results && data.results.length > 0) {
+              const location = data.results[0].formatted_address;
+              setUserLocation(location);
+              setFormData((prevData) => ({
+                ...prevData,
+                userLocation: location,
+              }));
+            } else {
+              alert("Error getting location information");
+            }
+          } catch (error) {
+            console.error("Error fetching location:", error);
+          } finally {
+            setFetchingLocation(false);
+          }
+        },
+        (error) => {
+          console.error("Error getting location", error);
+          setFetchingLocation(false);
+        }
+      );
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  };
+
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -118,17 +157,9 @@ function MultiStepForm() {
               </h2>
               <input
                 type="text"
-                name="firstName"
-                placeholder="First Name"
+                name="name"
+                placeholder="Name"
                 value={formData.firstName}
-                onChange={handleChange}
-                className="border-2 border-neutral-300 h-12 px-5 rounded-xl outline-none focus:outline-none focus:border-neutral-500 transition-all duration-200 ease-in-out"
-              />
-              <input
-                type="text"
-                name="lastName"
-                placeholder="Last Name"
-                value={formData.lastName}
                 onChange={handleChange}
                 className="border-2 border-neutral-300 h-12 px-5 rounded-xl outline-none focus:outline-none focus:border-neutral-500 transition-all duration-200 ease-in-out"
               />
@@ -163,11 +194,32 @@ function MultiStepForm() {
               <h2 className="text-xl font-medium text-neutral-700 mb-2">
                 What is the emergency?
               </h2>
+              {userLocation ? (
+                <div className="flex items-center gap-2">
+                  <MdOutlineMyLocation className="text-2xl" />
+                  <span className="text-lg font-semibold">{userLocation}</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleGetLocation}
+                  disabled={fetchingLocation}
+                  className={`text-white h-12 px-5 flex items-center font-medium gap-2 rounded-xl hover:translate-x-2 hover:-translate-y-2 hover:shadow-[-10px_10px_0px_1px_rgba(0,0,0,1)] transition-all duration-200 ease-in-out ${
+                    fetchingLocation
+                      ? "bg-red-300 cursor-not-allowed"
+                      : "bg-red-500"
+                  }`}
+                >
+                  {fetchingLocation
+                    ? "Fetching Location..."
+                    : "Ping my location "}
+                  <MdOutlineMyLocation className="text-2xl" />
+                </button>
+              )}
               <input
                 type="text"
-                name="location"
-                placeholder="Location"
-                value={formData.location}
+                name="extraLocationInfo"
+                placeholder="Additional info on location (optional)"
+                value={formData.extraLocationInfo}
                 onChange={handleChange}
                 className="border-2 border-neutral-300 h-12 px-5 rounded-xl outline-none focus:outline-none focus:border-neutral-500 transition-all duration-200 ease-in-out"
               />
